@@ -1,5 +1,9 @@
 package com.example.my_chat_app;
 
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
@@ -17,5 +21,29 @@ public class ChatController {
     @GetMapping("/")
     public String redirectToChat() {
         return "redirect:/chat";
+    }
+
+    // --- WebSocket Message Handling ---
+
+    /**
+     * Handles incoming chat messages from clients.
+     *
+     * @param message The message payload (the text sent by the client).
+     * @param headerAccessor Used to access STOMP headers, specifically the session ID for a unique sender identifier.
+     * @return The formatted message to be broadcast to all subscribers.
+     */
+    @MessageMapping("/sendMessage") // Maps messages from "/app/sendMessage"
+    @SendTo("/topic/public")      // Sends the return value of this method to "/topic/public"
+    public String sendMessage(@Payload String message, SimpMessageHeaderAccessor headerAccessor) {
+        // Add session ID to the message to make it look like it's coming from a unique user
+        // In a real app, you'd associate this with a username.
+        String sessionId = headerAccessor.getSessionId();
+        String userIdentifier = "Unknown";
+        if (sessionId != null && sessionId.length() >= 8) {
+            userIdentifier = sessionId.substring(0, 8);
+        } else if (sessionId != null) {
+            userIdentifier = sessionId;
+        }
+        return "User [" + userIdentifier + "]: " + message; // Truncate ID for readability
     }
 }
