@@ -10,6 +10,8 @@
       integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
       crossorigin="anonymous"
     />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
   </head>
 
   <body>
@@ -17,7 +19,21 @@
       <h1 class="text-center mb-4">Welcome to Web Chat!</h1>
 
       <div class="card">
-        <div class="card-header">Chat Room</div>
+        <div class="card-header">
+          Chat Room
+          <div class="float-end">
+            <button class="btn btn-success btn-sm" id="connectButton">
+              Connect
+            </button>
+            <button
+              class="btn btn-danger btn-sm"
+              id="disconnectButton"
+              disabled="disabled"
+            >
+              Disconnect
+            </button>
+          </div>
+        </div>
         <div class="card-body">
           <div
             id="messages"
@@ -29,7 +45,7 @@
               padding: 10px;
             "
           ></div>
-          <div class="input-group">
+          <div id="chatForm" class="input-group">
             <input
               type="text"
               id="messageInput"
@@ -47,12 +63,105 @@
       crossorigin="anonymous"
     ></script>
     <script>
-      // Your JavaScript for WebSocket communication will go here later
-      document
-        .getElementById("sendButton")
-        .addEventListener("click", function () {
-          alert("Send button clicked!"); // Just a test
-        });
+      var stompClient = null;
+      var messageInput = document.getElementById("messageInput");
+      var sendButton = document.getElementById("sendButton");
+      var messagesDiv = document.getElementById("messages");
+      var connectButton = document.getElementById("connectButton");
+      var disconnectButton = document.getElementById("disconnectButton");
+
+      // Function to update UI based on connection status
+      function setConnected(connected) {
+        connectButton.disabled = connected;
+        disconnectButton.disabled = !connected;
+        messageInput.disabled = !connected;
+        sendButton.disabled = !connected;
+        if (connected) {
+          messagesDiv.innerHTML = ""; // Clear messages on connect
+        }
+      }
+
+      // Function to establish WebSocket connection
+      function connect() {
+        // Use SockJS for fallback compatibility
+        var socket = new SockJS("/ws"); // Matches the endpoint in WebSocketConfig
+        stompClient = Stomp.over(socket);
+
+        stompClient.connect(
+          {},
+          function (frame) {
+            setConnected(true);
+            console.log("Connected: " + frame);
+
+            // Subscribe to the public topic to receive messages
+            stompClient.subscribe("/topic/public", function (chatMessage) {
+              try {
+                var parsedMessage = JSON.parse(chatMessage.body);
+                showMessage(parsedMessage.content || chatMessage.body); // Use content if available, else full body
+              } catch (e) {
+                // If it's not JSON, just display the raw body
+                showMessage(chatMessage.body);
+              }
+            });
+          },
+          function (error) {
+            console.error("STOMP connection error: " + error);
+            setConnected(false);
+            showMessage("Connection error: " + error);
+          }
+        );
+      }
+
+      // Function to disconnect WebSocket
+      function disconnect() {
+        if (stompClient !== null) {
+          stompClient.disconnect();
+        }
+        setConnected(false);
+        console.log("Disconnected");
+        showMessage("Disconnected from chat.");
+      }
+
+      // Function to send message to the server
+      function sendMessage() {
+        var messageContent = messageInput.value.trim();
+        if (messageContent && stompClient) {
+          // Send message to the server's @MessageMapping("/sendMessage") endpoint
+          // Sending as JSON, so the server can parse it as String or POJO.
+          stompClient.send(
+            "/app/sendMessage",
+            {},
+            JSON.stringify({ content: messageContent })
+          );
+          messageInput.value = ""; // Clear input field
+        }
+      }
+
+      // Function to display messages in the chat window
+      function showMessage(message) {
+        var messageElement = document.createElement("div");
+        messageElement.classList.add("message"); // Add a class for future styling
+        messageElement.textContent = message; // Use textContent for security (prevents XSS)
+        messagesDiv.appendChild(messageElement);
+        // Scroll to the bottom to see new messages
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      }
+
+      // Event Listeners for buttons and input field
+      connectButton.addEventListener("click", connect);
+      disconnectButton.addEventListener("click", disconnect);
+      sendButton.addEventListener("click", sendMessage);
+
+      // Allow sending message by pressing Enter key in the input field
+      messageInput.addEventListener("keypress", function (event) {
+        if (event.key === "Enter") {
+          event.preventDefault(); // Prevent default form submission (if any)
+          sendMessage();
+        }
+      });
+
+      // Initialize UI state
+      setConnected(false);
     </script>
   </body>
 </html>
