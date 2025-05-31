@@ -17,7 +17,6 @@ public class ChatController {
         return "chat";
     }
 
-    // You can also add a redirect for the root URL
     @GetMapping("/")
     public String redirectToChat() {
         return "redirect:/chat";
@@ -28,15 +27,13 @@ public class ChatController {
     /**
      * Handles incoming chat messages from clients.
      *
-     * @param message The message payload (the text sent by the client).
+     * @param chatMessage The message payload as a ChatMessage object.
      * @param headerAccessor Used to access STOMP headers, specifically the session ID for a unique sender identifier.
      * @return The formatted message to be broadcast to all subscribers.
      */
     @MessageMapping("/sendMessage") // Maps messages from "/app/sendMessage"
     @SendTo("/topic/public")      // Sends the return value of this method to "/topic/public"
-    public String sendMessage(@Payload String message, SimpMessageHeaderAccessor headerAccessor) {
-        // Add session ID to the message to make it look like it's coming from a unique user
-        // In a real app, you'd associate this with a username.
+    public String sendMessage(@Payload ChatMessage chatMessage, SimpMessageHeaderAccessor headerAccessor) {
         String sessionId = headerAccessor.getSessionId();
         String userIdentifier = "Unknown";
         if (sessionId != null && sessionId.length() >= 8) {
@@ -44,6 +41,6 @@ public class ChatController {
         } else if (sessionId != null) {
             userIdentifier = sessionId;
         }
-        return "User [" + userIdentifier + "]: " + message; // Truncate ID for readability
+        return "User [" + userIdentifier + "]: " + chatMessage.getContent(); // Truncate ID for readability
     }
 }

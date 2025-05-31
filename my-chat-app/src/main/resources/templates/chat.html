@@ -95,13 +95,7 @@
 
             // Subscribe to the public topic to receive messages
             stompClient.subscribe("/topic/public", function (chatMessage) {
-              try {
-                var parsedMessage = JSON.parse(chatMessage.body);
-                showMessage(parsedMessage.content || chatMessage.body); // Use content if available, else full body
-              } catch (e) {
-                // If it's not JSON, just display the raw body
-                showMessage(chatMessage.body);
-              }
+              showMessage(chatMessage.body);
             });
           },
           function (error) {
