@@ -35,6 +35,17 @@
           </div>
         </div>
         <div class="card-body">
+          <div class="input-group mb-3" id="usernameSection">
+            <input
+              type="text"
+              id="usernameInput"
+              class="form-control"
+              placeholder="Enter your username..."
+            />
+            <button class="btn btn-info" id="setUsernameButton">
+              Set Username
+            </button>
+          </div>
           <div
             id="messages"
             class="mb-3"
@@ -64,6 +75,12 @@
     ></script>
     <script>
       var stompClient = null;
+      var currentUsername = null;
+
+      var usernameInput = document.getElementById("usernameInput");
+      var setUsernameButton = document.getElementById("setUsernameButton");
+      var usernameSection = document.getElementById("usernameSection");
+
       var messageInput = document.getElementById("messageInput");
       var sendButton = document.getElementById("sendButton");
       var messagesDiv = document.getElementById("messages");
@@ -76,6 +93,8 @@
         disconnectButton.disabled = !connected;
         messageInput.disabled = !connected;
         sendButton.disabled = !connected;
+        usernameSection.style.display = connected ? "none" : "flex"; // Hide username section if connected
+
         if (connected) {
           messagesDiv.innerHTML = ""; // Clear messages on connect
         }
@@ -83,15 +102,30 @@
 
       // Function to establish WebSocket connection
       function connect() {
+        var username = usernameInput.value.trim();
+        if (!username) {
+          alert("Please enter a username!");
+          return;
+        }
+        currentUsername = username; // Store the username
+
         // Use SockJS for fallback compatibility
         var socket = new SockJS("/ws"); // Matches the endpoint in WebSocketConfig
         stompClient = Stomp.over(socket);
 
         stompClient.connect(
-          {},
+          { 'username': currentUsername },
           function (frame) {
             setConnected(true);
             console.log("Connected: " + frame);
+
+            // Send an initial message to the server to register the username
+            // This will trigger the @MessageMapping("/addUser") on the server
+            stompClient.send(
+              "/app/addUser",
+              {},
+              JSON.stringify({ content: "Joined" })
+            ); // Arbitrary content
 
             // Subscribe to the public topic to receive messages
             stompClient.subscribe("/topic/public", function (chatMessage) {
@@ -102,6 +136,7 @@
             console.error("STOMP connection error: " + error);
             setConnected(false);
             showMessage("Connection error: " + error);
+            currentUsername = null;
           }
         );
       }
@@ -114,6 +149,7 @@
         setConnected(false);
         console.log("Disconnected");
         showMessage("Disconnected from chat.");
+        currentUsername = null;
       }
 
       // Function to send message to the server
@@ -134,8 +170,16 @@
       // Function to display messages in the chat window
       function showMessage(message) {
         var messageElement = document.createElement("div");
-        messageElement.classList.add("message"); // Add a class for future styling
+        messageElement.classList.add("message", "p-1", "rounder", "mb-1"); // Add a class for future styling
+
+        if (message.includes("[" + currentUsername + "]:")) {
+          messageElement.classList.add("bg-primary", "text-white", "ms-auto"); // Blue bg, right-alighed
+        } else {
+          messageElement.classList.add("bg-secondary", "text-white", "me-auto"); // Gray-gb, left aligned
+        }
+        messageElement.style.maxWidth = "75%";
         messageElement.textContent = message; // Use textContent for security (prevents XSS)
+
         messagesDiv.appendChild(messageElement);
         // Scroll to the bottom to see new messages
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -151,6 +195,15 @@
         if (event.key === "Enter") {
           event.preventDefault(); // Prevent default form submission (if any)
           sendMessage();
+        }
+      });
+
+      setUsernameButton.addEventListener("click", connect);
+
+      usernameInput.addEventListener("keypress", function (event) {
+        if (event.key == "Enter") {
+          event.preventDefault();
+          connect();
         }
       });
 
