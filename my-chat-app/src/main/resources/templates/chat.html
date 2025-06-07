@@ -124,18 +124,24 @@
             stompClient.send(
               "/app/addUser",
               {},
-              JSON.stringify({ content: "Joined" })
+              JSON.stringify({ content: "Joined", type: "JOIN" })
             ); // Arbitrary content
 
             // Subscribe to the public topic to receive messages
-            stompClient.subscribe("/topic/public", function (chatMessage) {
-              showMessage(chatMessage.body);
+            stompClient.subscribe("/topic/public", function (stompResponse) {
+              var chatMessage = JSON.parse(stompResponse.body);
+              displayFormattedMessage(chatMessage);
+            });
+
+            stompClient.subscribe("user/queue/messages", function (stompResponse) {
+              var chatMessage = JSON.parse(stompResponse.body);
+              displayFormattedMessage(chatMessage, true);
             });
           },
           function (error) {
             console.error("STOMP connection error: " + error);
             setConnected(false);
-            showMessage("Connection error: " + error);
+            showMessage("System: Connection error. Please check console.");
             currentUsername = null;
           }
         );
@@ -148,42 +154,82 @@
         }
         setConnected(false);
         console.log("Disconnected");
-        showMessage("Disconnected from chat.");
+        showMessage("System: Disconnected from chat.");
         currentUsername = null;
       }
 
       // Function to send message to the server
       function sendMessage() {
         var messageContent = messageInput.value.trim();
-        if (messageContent && stompClient) {
-          // Send message to the server's @MessageMapping("/sendMessage") endpoint
-          // Sending as JSON, so the server can parse it as String or POJO.
-          stompClient.send(
-            "/app/sendMessage",
-            {},
-            JSON.stringify({ content: messageContent })
-          );
-          messageInput.value = ""; // Clear input field
+        if (!messageContent || !stompClient) return;
+
+        var chatMessage = {
+          'type': 'CHAT',
+          'content': messageContent,
+          'sender': currentUsername
+        };
+
+        if (messageContent.startsWith('/msg ')) {
+          var parts = messageContent.split(' ');
+          if (parts.length >= 3) {
+            var recipient = parts[1];
+            var privateContent = parts.slice(2).join(' ');
+            chatMessage.type = 'PRIVATE';
+            chatMessage.recipient = recipient;
+            chatMessage.content = privateContent;
+          } else {
+            showMessage("System: Invalid private message format. Use /msg [username] [message]");
+            messageInput.value = '';
+            return;
+          }
         }
+
+        stompClient.send("/app/sendMessage", {}, JSON.stringify(chatMessage));
+        messageInput.value = '';
+      }
+
+      function displayFormattedMessage(chatMessage, isPrivate = false) {
+        var messageText = "";
+        var messageElement = document.createElement('div');
+        messageElement.classList.add('message', 'p-1', 'rounded', 'mb-1');
+        messageElement.style.maxWidth = '75%';
+
+        if (chatMessage.type === 'JOIN' || chatMessage.type === 'LEAVE') {
+          messageText = `System: ${chatMessage.content}`;
+          messageElement.classList.add('bg-info', 'text-white', 'text-center', 'mx-auto');
+          messageElement.style.maxWidth = '90%'; // Center system messages
+        } else if (chatMessage.type === 'PRIVATE') {
+          messageText = `[Private from ${chatMessage.sender} to ${chatMessage.recipient}]: ${chatMessage.content}`;
+          messageElement.classList.add('bg-warning', 'text-dark'); // Yellow background for private
+          // Align private messages from self or others
+          if (chatMessage.sender === currentUsername) {
+            messageElement.classList.add('ms-auto'); // Align self-sent private to right
+          } else {
+            messageElement.classList.add('me-auto'); // Align received private to left
+          }
+        } else { // CHAT type
+          messageText = `[${chatMessage.sender}]: ${chatMessage.content}`;
+          if (chatMessage.sender === currentUsername) {
+            messageElement.classList.add('bg-primary', 'text-white', 'ms-auto');
+          } else {
+            messageElement.classList.add('bg-secondary', 'text-white', 'me-auto');
+          }
+        }
+
+        messageElement.textContent = messageText;
+        messagesDiv.appendChild(messageElement);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
       }
 
       // Function to display messages in the chat window
       function showMessage(message) {
-        var messageElement = document.createElement("div");
-        messageElement.classList.add("message", "p-1", "rounder", "mb-1"); // Add a class for future styling
-
-        if (message.includes("[" + currentUsername + "]:")) {
-          messageElement.classList.add("bg-primary", "text-white", "ms-auto"); // Blue bg, right-alighed
-        } else {
-          messageElement.classList.add("bg-secondary", "text-white", "me-auto"); // Gray-gb, left aligned
+            var messageElement = document.createElement('div');
+            messageElement.classList.add('message', 'p-1', 'rounded', 'mb-1', 'bg-dark', 'text-light', 'text-center', 'mx-auto');
+            messageElement.style.maxWidth = '90%';
+            messageElement.textContent = message;
+            messagesDiv.appendChild(messageElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
-        messageElement.style.maxWidth = "75%";
-        messageElement.textContent = message; // Use textContent for security (prevents XSS)
-
-        messagesDiv.appendChild(messageElement);
-        // Scroll to the bottom to see new messages
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-      }
 
       // Event Listeners for buttons and input field
       connectButton.addEventListener("click", connect);

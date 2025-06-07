@@ -4,11 +4,13 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +23,9 @@ public class ChatController {
     private static final Logger logger = LoggerFactory.getLogger(ChatController.class);
 
     public static final String USERNAME_SESSION_ATTRIBUTE = "username";
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 
     @GetMapping("/chat") // This maps HTTP GET requests to the /chat URL to this method
     public String chatPage() {
@@ -47,9 +52,8 @@ public class ChatController {
 
         // Log all native headers received during the CONNECT event
         String username = headerAccessor.getFirstNativeHeader("username");
-        logger.info("SessionConnectEvent - Attempted to retrieve username from CONNECT header: {}", username);
-
         
+        //logger.info("SessionConnectEvent - Attempted to retrieve username from CONNECT header: {}", username);
 
         if (username == null || username.trim().isEmpty()) {
             String sessionId = headerAccessor.getSessionId();
@@ -67,22 +71,20 @@ public class ChatController {
         if (sessionAttributes != null) {
             sessionAttributes.put(USERNAME_SESSION_ATTRIBUTE, username);
             logger.info("SessionConnectEvent - Username '{}' stored in session attributes for session {}", username, headerAccessor.getSessionId());
+            
+            // An alternative of /addUser
+
+            // ChatMessage joinMessage = new ChatMessage(ChatMessage.MessageType.JOIN, username + " has joined the chat!", username);
+            // messagingTemplate.convertAndSend("/topic/public", joinMessage);
         } else {
             logger.error("Session attributes are null for session {}", headerAccessor.getSessionId());
         }
-
-        // headerAccessor.setUser(new UsernamePrincipal(username));
-        // logger.info("SessionConnectEvent - Principal set for session {}: {}", headerAccessor.getSessionId(), headerAccessor.getUser());
     }
 
     @EventListener
     public void handleWebSocketDisconnectListener(SessionDisconnectEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
         String username = "Unknown User (Disconnected)";
-        // Principal user = headerAccessor.getUser();
-        // if (user != null) {
-        //     username = user.getName();
-        // }
 
         Map<String, Object> sessionAttributes = headerAccessor.getSessionAttributes();
         if (sessionAttributes != null && sessionAttributes.containsKey(USERNAME_SESSION_ATTRIBUTE)) {
@@ -90,6 +92,9 @@ public class ChatController {
         }
 
         logger.info("SessionDisconnectEvent - User disconnected: {}", username);
+
+        ChatMessage leaveMessage = new ChatMessage(ChatMessage.MessageType.LEAVE, username + " has left the chat.", username);
+        messagingTemplate.convertAndSend("topic/public", leaveMessage);
     }
 
     /**
@@ -109,46 +114,17 @@ public class ChatController {
     }
 
     /**
-     * Handles the initial "add user" message when a client connects and sends their username.
-     * This method is primarily used to set the user's principal on the WebSocket session.
-     * The @Payload ChatMessage will still be processed, but its content might be empty or a welcome message.
+     * Handles the initial "add user" message.
+     * New sends a structured ChatMessage with type JOIN
      */
-    @MessageMapping("/addUser") // Client will send to /app/addUser
+    @MessageMapping("/addUser")
     @SendTo("/topic/public") // Broadcasts a welcome message to all subscribers
-    public String addUser(@Payload ChatMessage chatMessage, SimpMessageHeaderAccessor headerAccessor) {
-        // // Log all native headers received
-        // logger.info("Received CONNECT message. Native header: {}", headerAccessor.getMessageHeaders().get("nativeHeaders"));
-        
-        // // Retrieve the username from the STOMP CONNECT header (sent by the client)
-        // String username = headerAccessor.getFirstNativeHeader("username");
-        
-        // // Log the username as retrieved
-        // logger.info("Attempted to retrieve username from header: {}", username);
-
-        // if (username == null || username.trim().isEmpty()) {
-        //     // Fallback if username is missing or empty
-        //     String sessionId = headerAccessor.getSessionId();
-        //     if (sessionId != null && sessionId.length() >= 8) {
-        //         username = "AnonymousUser_" + sessionId.substring(0, 8);
-        //     } else if (sessionId != null) {
-        //         username = "AnonymousUser_Unknown";
-        //     }
-        // }
-
-        // // Set the user principal on the WebSocket session.
-        // // This makes the username available in subsequent messages from this session.
-        // headerAccessor.setUser(new UsernamePrincipal(username));
-
-        // String username = "Anonymous";
-        // Principal user = headerAccessor.getUser();
-        // if (user != null) {
-        //     username = user.getName();
-        // }
+    public ChatMessage addUser(@Payload ChatMessage chatMessage, SimpMessageHeaderAccessor headerAccessor) {
         String username = getUsernameFromSession(headerAccessor);
 
-        logger.info("User {} sent join message to /addUser. Principal in addUser: {}", username);
+        logger.info("User {} sent join message to /addUser.", username);
 
-        return "[" + username + "] has joined the chat!"; 
+        return new ChatMessage(ChatMessage.MessageType.JOIN, username + " has joined the chat!", username); 
 
     }
 
@@ -157,36 +133,47 @@ public class ChatController {
      * Handles incoming chat messages from clients.
      *
      * @param chatMessage The message payload as a ChatMessage object.
-     * @param headerAccessor Used to access STOMP headers, specifically the session ID for a unique sender identifier.
-     * @return The formatted message to be broadcast to all subscribers.
+     * @param headerAccessor Used to access STOMP headers.
      */
-    @MessageMapping("/sendMessage") // Maps messages from "/app/sendMessage"
-    @SendTo("/topic/public")      // Sends the return value of this method to "/topic/public"
-    public String sendMessage(@Payload ChatMessage chatMessage, SimpMessageHeaderAccessor headerAccessor) {
-        // // Get the username from the session's Principal that we set in addUser method
-        // String username = "Anonymous";
-        // Principal user = headerAccessor.getUser();
-        // // *** ADDED LOGGING FOR DEBUGGING ***
-        // logger.info("sendMessage method called. Session ID: {}", headerAccessor.getSessionId());
-        // logger.info("sendMessage method called. Principal in headerAccessor: {}", user);
-        // if (user != null) {
-        //     username = user.getName();
-        // } else {
-        //     logger.warn("Principal is null in sendMessage method for session: {}", headerAccessor.getSessionId());
-        //     String sessionId = headerAccessor.getSessionId();
-        //     if (sessionId != null && sessionId.length() >= 8) {
-        //         username = "AnonymousUser_" + sessionId.substring(0, 8);
-        //     } else if (sessionId != null) {
-        //         username = "AnonymousUser_Unknown";
-        //     }
-        // }
-        String username = getUsernameFromSession(headerAccessor);
+    @MessageMapping("/sendMessage")
+    public void sendMessage(@Payload ChatMessage chatMessage, SimpMessageHeaderAccessor headerAccessor) {
 
-        logger.info("sendMessage method called. Session ID: {}", headerAccessor.getSessionId());
-        logger.info("sendMessage method called. Principal in headerAccessor: {}", headerAccessor.getUser());
-        logger.info("sendMessage method called. Username from session attributes: {}", username);
+        String senderUsername = getUsernameFromSession(headerAccessor);
+        chatMessage.setSender(senderUsername);
 
-        logger.info("User {}: {}", username, chatMessage.getContent());
-        return "User [" + username + "]: " + chatMessage.getContent(); 
+        logger.info("Recieved message type: {} from sender {}", chatMessage.getType(), senderUsername);
+        logger.info("Message conter: {}", chatMessage.getContent());
+        logger.info("Recipient: {}", chatMessage.getRecipient());
+
+        if (chatMessage.getType() == ChatMessage.MessageType.PRIVATE) {
+            String recipientUsername = chatMessage.getRecipient();
+
+            if (recipientUsername != null && !recipientUsername.trim().isEmpty()) {
+                messagingTemplate.convertAndSendToUser(
+                    recipientUsername, 
+                    "queue/messages", 
+                    chatMessage
+                );
+
+                logger.info("Private message from {} to {}: {}", senderUsername, recipientUsername, chatMessage.getContent());
+
+                messagingTemplate.convertAndSendToUser(
+                    senderUsername, 
+                    "queue/messages", 
+                    new ChatMessage(ChatMessage.MessageType.CHAT, "(to " + recipientUsername + ")" + chatMessage.getContent(), senderUsername)
+                );
+            } else {
+                logger.warn("Private message received without a recipient from user: {}", senderUsername);
+
+                messagingTemplate.convertAndSendToUser(
+                    senderUsername, 
+                    "queue/messages", 
+                    new ChatMessage(ChatMessage.MessageType.CHAT, "Error: Private message requires a recipient", "System")
+                );
+            }
+        } else {
+            messagingTemplate.convertAndSend("topic/public", chatMessage);
+            logger.info("Public message from {}: {}", senderUsername, chatMessage.getContent());
+        }
     }
 }
