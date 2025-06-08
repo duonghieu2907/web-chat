@@ -142,7 +142,7 @@ public class ChatController {
         chatMessage.setSender(senderUsername);
 
         logger.info("Recieved message type: {} from sender {}", chatMessage.getType(), senderUsername);
-        logger.info("Message conter: {}", chatMessage.getContent());
+        logger.info("Message content: {}", chatMessage.getContent());
         logger.info("Recipient: {}", chatMessage.getRecipient());
 
         if (chatMessage.getType() == ChatMessage.MessageType.PRIVATE) {
@@ -151,7 +151,7 @@ public class ChatController {
             if (recipientUsername != null && !recipientUsername.trim().isEmpty()) {
                 messagingTemplate.convertAndSendToUser(
                     recipientUsername, 
-                    "queue/messages", 
+                    "/queue/messages", 
                     chatMessage
                 );
 
@@ -159,7 +159,7 @@ public class ChatController {
 
                 messagingTemplate.convertAndSendToUser(
                     senderUsername, 
-                    "queue/messages", 
+                    "/queue/messages", 
                     new ChatMessage(ChatMessage.MessageType.CHAT, "(to " + recipientUsername + ")" + chatMessage.getContent(), senderUsername)
                 );
             } else {
@@ -167,12 +167,12 @@ public class ChatController {
 
                 messagingTemplate.convertAndSendToUser(
                     senderUsername, 
-                    "queue/messages", 
+                    "/queue/messages", 
                     new ChatMessage(ChatMessage.MessageType.CHAT, "Error: Private message requires a recipient", "System")
                 );
             }
         } else {
-            messagingTemplate.convertAndSend("topic/public", chatMessage);
+            messagingTemplate.convertAndSend("/topic/public", chatMessage);
             logger.info("Public message from {}: {}", senderUsername, chatMessage.getContent());
         }
     }

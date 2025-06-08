@@ -130,11 +130,13 @@
             // Subscribe to the public topic to receive messages
             stompClient.subscribe("/topic/public", function (stompResponse) {
               var chatMessage = JSON.parse(stompResponse.body);
+              console.log('Received message:', chatMessage.content);
               displayFormattedMessage(chatMessage);
             });
 
-            stompClient.subscribe("user/queue/messages", function (stompResponse) {
+            stompClient.subscribe("/user/queue/messages", function (stompResponse) {
               var chatMessage = JSON.parse(stompResponse.body);
+              console.log('Received private message:', chatMessage.content);
               displayFormattedMessage(chatMessage, true);
             });
           },
