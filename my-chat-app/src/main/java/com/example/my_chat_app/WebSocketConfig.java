@@ -23,10 +23,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         // Enables a simple in-memory message broker.
         // Messages whose destination starts with "/topic" will be routed to the message broker.
         // The broker then broadcasts these messages to all connected clients that are subscribed to that topic.
-        config.enableSimpleBroker("/queue", "/topic");
+        config.enableSimpleBroker("/user", "/topic");
 
         // Sets the prefix for messages that are bound for methods annotated with @MessageMapping.
         // For example, a client sends a message to /app/sendMessage, which will be routed to a controller method.
         config.setApplicationDestinationPrefixes("/app");
+
+        config.setUserDestinationPrefix("/user");
     }
 }

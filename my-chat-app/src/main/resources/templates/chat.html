@@ -112,12 +112,19 @@
         // Use SockJS for fallback compatibility
         var socket = new SockJS("/ws"); // Matches the endpoint in WebSocketConfig
         stompClient = Stomp.over(socket);
+        var sessionId = "";
 
         stompClient.connect(
           { 'username': currentUsername },
           function (frame) {
             setConnected(true);
-            console.log("Connected: " + frame);
+            // console.log("Connected: " + frame);
+            // var url = stompClient.ws._transport.url;
+            // url = url.replace("ws://localhost:8080/ws",  "");
+            // url = url.replace("/websocket", "");
+            // url = url.replace(/^\/[0-9]+\//, "");
+            // console.log("Your current session is: " + url);
+            // sessionId = url;
 
             // Send an initial message to the server to register the username
             // This will trigger the @MessageMapping("/addUser") on the server
@@ -130,11 +137,11 @@
             // Subscribe to the public topic to receive messages
             stompClient.subscribe("/topic/public", function (stompResponse) {
               var chatMessage = JSON.parse(stompResponse.body);
-              console.log('Received message:', chatMessage.content);
+              // console.log('Received message:', chatMessage.content);
               displayFormattedMessage(chatMessage);
             });
 
-            stompClient.subscribe("/user/queue/messages", function (stompResponse) {
+            stompClient.subscribe("/user/" + currentUsername + "/queue/messages", function (stompResponse) {
               var chatMessage = JSON.parse(stompResponse.body);
               console.log('Received private message:', chatMessage.content);
               displayFormattedMessage(chatMessage, true);
