@@ -35,6 +35,14 @@
           </div>
         </div>
         <div class="card-body">
+          <div class="input-group mb-3" id="roomSection">
+              <input type="text" id="roomNameInput" class="form-control" placeholder="Room name">
+              <button class="btn btn-info" id="createRoomButton">
+                Create Room
+              </button>
+          </div>
+          <div id="roomList" class="mb-3"></div>
+
           <div class="input-group mb-3" id="usernameSection">
             <input
               type="text"
@@ -76,10 +84,15 @@
     <script>
       var stompClient = null;
       var currentUsername = null;
+      var currentRoomId = null;
+      var currentRoomSubscription = null;
 
       var usernameInput = document.getElementById("usernameInput");
+      var roomNameInput = document.getElementById("roomNameInput");
       var setUsernameButton = document.getElementById("setUsernameButton");
+      var createRoomButton = document.getElementById("createRoomButton");
       var usernameSection = document.getElementById("usernameSection");
+      var roomList = document.getElementById("roomList");
 
       var messageInput = document.getElementById("messageInput");
       var sendButton = document.getElementById("sendButton");
@@ -118,14 +131,6 @@
           { 'username': currentUsername },
           function (frame) {
             setConnected(true);
-            // console.log("Connected: " + frame);
-            // var url = stompClient.ws._transport.url;
-            // url = url.replace("ws://localhost:8080/ws",  "");
-            // url = url.replace("/websocket", "");
-            // url = url.replace(/^\/[0-9]+\//, "");
-            // console.log("Your current session is: " + url);
-            // sessionId = url;
-
             // Send an initial message to the server to register the username
             // This will trigger the @MessageMapping("/addUser") on the server
             stompClient.send(
@@ -167,6 +172,45 @@
         currentUsername = null;
       }
 
+      function createRoom() {
+        var roomName = roomNameInput.value.trim();
+        if (!roomName) {
+          alert('Please enter a room name');
+          return;
+        }
+        var roomId = Math.random().toString(36).substring(2, 8);
+        var roomDiv = document.createElement('div');
+        roomDiv.className = 'd-flex justify-content-between align-items-center mb-2 p-2 border rounded';
+        roomDiv.innerHTML = `
+          <span>${roomName} (ID: ${roomId})</span>
+          <button class="btn btn-sm btn-primary joinRoomButton" data-room-id="${roomId}">Join</button>
+        `;
+        roomList.appendChild(roomDiv);
+      }
+
+      function joinRoom(roomId) {
+        // Unsubscribe from previous room if needed
+        if (currentRoomSubscription) {
+          currentRoomSubscription.unsubscribe();
+        }
+        // Subscribe to the new room's topic
+        currentRoomSubscription = stompClient.subscribe(
+          '/topic/room/' + roomId,
+          function (stompResponse) {
+            var chatMessage = JSON.parse(stompResponse.body);
+            // console.log('Received message:', chatMessage.content);
+            displayFormattedMessage(chatMessage);
+          }
+        );
+        currentRoomId = roomId;
+        // Show a message that you joined the room
+        // displayFormattedMessage({
+        //   sender: 'System',
+        //   content: `You joined room: ${roomId}`,
+        //   type: 'JOIN'
+        // });
+      }
+
       // Function to send message to the server
       function sendMessage() {
         var messageContent = messageInput.value.trim();
@@ -191,6 +235,10 @@
             messageInput.value = '';
             return;
           }
+        } else if (currentRoomId
+        ) {
+          chatMessage.type = 'ROOM';
+          chatMessage.roomId = currentRoomId;
         }
 
         stompClient.send("/app/sendMessage", {}, JSON.stringify(chatMessage));
@@ -259,6 +307,23 @@
         if (event.key == "Enter") {
           event.preventDefault();
           connect();
+        }
+      });
+
+      createRoomButton.addEventListener("click", createRoom);
+
+      roomNameInput.addEventListener("keypress", function (event) {
+        if (event.key == "Enter") {
+          event.preventDefault();
+          createRoom();
+        }
+      });
+
+      // Join a room (using event delegation for dynamic buttons)
+      roomList.addEventListener('click', function(e) {
+        if (e.target.classList.contains('joinRoomButton')) {
+          var roomId = e.target.getAttribute('data-room-id');
+          joinRoom(roomId);
         }
       });
 

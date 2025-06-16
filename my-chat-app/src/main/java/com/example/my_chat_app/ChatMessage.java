@@ -8,17 +8,18 @@ public class ChatMessage {
         CHAT,
         JOIN,
         LEAVE,
-        PRIVATE
+        PRIVATE,
+        ROOM
     }
 
     private MessageType type;
     private String content;
     private String sender;
     private String recipient;
+    private String roomId;
 
     // Default constructor is often needed for JSON deserialization
-    public ChatMessage() {
-    }
+    public ChatMessage() {}
 
     public ChatMessage(MessageType type, String content, String sender) {
         this.type = type;
@@ -26,11 +27,12 @@ public class ChatMessage {
         this.sender = sender;
     }
 
-    public ChatMessage(MessageType type, String content, String sender, String recipient) {
+    public ChatMessage(MessageType type, String content, String sender, String recipient, String roomId) {
         this.type = type;
         this.content = content;
         this.sender = sender;
         this.recipient = recipient;
+        this.roomId = roomId;
     }
 
     public MessageType getType() {
@@ -65,6 +67,14 @@ public class ChatMessage {
         this.recipient = recipient;
     }
 
+    public String getRoomId() {
+        return roomId;
+    }
+
+    public void setRoomId(String roomId) {
+        this.roomId = roomId;
+    }
+
     @Override
     public String toString() {
         return "ChatMessage{" +
@@ -72,6 +82,7 @@ public class ChatMessage {
                "content='" + content + '\'' +
                "sender='" + sender + '\'' +
                "recipient='" + recipient + '\'' +
+               "roomId='" + roomId + '\'' +
                '}';
     }
 }

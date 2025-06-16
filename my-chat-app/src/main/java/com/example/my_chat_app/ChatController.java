@@ -145,35 +145,54 @@ public class ChatController {
         logger.info("Message content: {}", chatMessage.getContent());
         logger.info("Recipient: {}", chatMessage.getRecipient());
 
-        if (chatMessage.getType() == ChatMessage.MessageType.PRIVATE) {
-            String recipientUsername = chatMessage.getRecipient();
-
-            if (recipientUsername != null && !recipientUsername.trim().isEmpty()) {
-                messagingTemplate.convertAndSendToUser(
-                    recipientUsername, 
-                    "/queue/messages", 
-                    chatMessage
-                );
-
-                logger.info("Private message from {} to {}: {}", senderUsername, recipientUsername, chatMessage.getContent());
-
-                messagingTemplate.convertAndSendToUser(
-                    senderUsername, 
-                    "/queue/messages", 
-                    new ChatMessage(ChatMessage.MessageType.CHAT, "(to " + recipientUsername + ")" + chatMessage.getContent(), senderUsername)
-                );
-            } else {
-                logger.warn("Private message received without a recipient from user: {}", senderUsername);
-
-                messagingTemplate.convertAndSendToUser(
-                    senderUsername, 
-                    "/queue/messages", 
-                    new ChatMessage(ChatMessage.MessageType.CHAT, "Error: Private message requires a recipient", "System")
-                );
-            }
-        } else {
+        if (null == chatMessage.getType()) {
             messagingTemplate.convertAndSend("/topic/public", chatMessage);
             logger.info("Public message from {}: {}", senderUsername, chatMessage.getContent());
+        } else switch (chatMessage.getType()) {
+            case PRIVATE -> {
+                String recipientUsername = chatMessage.getRecipient();
+                if (recipientUsername != null && !recipientUsername.trim().isEmpty()) {
+                    messagingTemplate.convertAndSendToUser(
+                            recipientUsername,
+                            "/queue/messages",
+                            chatMessage
+                    );
+                    
+                    logger.info("Private message from {} to {}: {}", senderUsername, recipientUsername, chatMessage.getContent());
+                    
+                    messagingTemplate.convertAndSendToUser(
+                            senderUsername,
+                            "/queue/messages",
+                            new ChatMessage(ChatMessage.MessageType.CHAT, "(to " + recipientUsername + ")" + chatMessage.getContent(), senderUsername)
+                    );
+                } else {
+                    logger.warn("Private message received without a recipient from user: {}", senderUsername);
+                    
+                    messagingTemplate.convertAndSendToUser(
+                            senderUsername,
+                            "/queue/messages",
+                            new ChatMessage(ChatMessage.MessageType.CHAT, "Error: Private message requires a recipient", "System")
+                    );
+                }
+            }
+            case ROOM -> {
+                String roomId = chatMessage.getRoomId();
+                if (roomId != null && !roomId.trim().isEmpty()) {
+                    messagingTemplate.convertAndSend("/topic/room/" + chatMessage.getRoomId(), chatMessage);
+                    logger.info("Message from {} to room {}: {}", senderUsername, chatMessage.getRoomId(), chatMessage.getContent());
+                } else {
+                    logger.warn("Message received without a room id from user: {}", senderUsername);
+                    messagingTemplate.convertAndSendToUser(
+                            senderUsername,
+                            "/queue/messages",
+                            new ChatMessage(ChatMessage.MessageType.CHAT, "Error: Private message requires a recipient", "System")
+                    );
+                }
+            }
+            default -> {
+                messagingTemplate.convertAndSend("/topic/public", chatMessage);
+                logger.info("Public message from {}: {}", senderUsername, chatMessage.getContent());
+            }
         }
     }
 }
