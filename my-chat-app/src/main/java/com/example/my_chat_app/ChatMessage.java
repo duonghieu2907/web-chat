@@ -27,6 +27,13 @@ public class ChatMessage {
         this.sender = sender;
     }
 
+    public ChatMessage(MessageType type, String content, String sender, String roomId) {
+        this.type = type;
+        this.content = content;
+        this.sender = sender;
+        this.roomId = roomId;
+    }
+
     public ChatMessage(MessageType type, String content, String sender, String recipient, String roomId) {
         this.type = type;
         this.content = content;

@@ -1,6 +1,7 @@
 package com.example.my_chat_app;
 
 import java.util.Map;
+import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,9 @@ public class ChatController {
     private static final Logger logger = LoggerFactory.getLogger(ChatController.class);
 
     public static final String USERNAME_SESSION_ATTRIBUTE = "username";
+
+    @Autowired
+    private RoomService roomService;
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
@@ -128,7 +132,36 @@ public class ChatController {
 
     }
 
+    /**
+     * @param room
+     * @param headerAccessor
+     * @return
+     */
+    @MessageMapping("/createRoom")
+    @SendTo("/topic/rooms")
+    public ChatMessage createRoom(@Payload ChatRoom room, SimpMessageHeaderAccessor headerAccessor) {
+        String username = getUsernameFromSession(headerAccessor);
+        room.setAdmin(username);
 
+        if (roomService.exists(room.getRoomId())) {
+            room.setRoomId(UUID.randomUUID().toString().substring(0, 6));
+        }
+
+
+        roomService.addRoom(room);
+
+        if (roomService.exists(room.getRoomId())) {
+            System.out.println("A new room is created and stored with id: " + room.getRoomId());
+        } else {
+            System.err.println("Room is not created successfully!");
+        }
+
+        return new ChatMessage(ChatMessage.MessageType.ROOM,
+                                username + " has create room " + room.getName() + "!",
+                                username,
+                                room.getRoomId()); 
+    }
+    
     /**
      * Handles incoming chat messages from clients.
      *
@@ -145,54 +178,65 @@ public class ChatController {
         logger.info("Message content: {}", chatMessage.getContent());
         logger.info("Recipient: {}", chatMessage.getRecipient());
 
-        if (null == chatMessage.getType()) {
+        if (chatMessage.getType() == null) {
             messagingTemplate.convertAndSend("/topic/public", chatMessage);
             logger.info("Public message from {}: {}", senderUsername, chatMessage.getContent());
-        } else switch (chatMessage.getType()) {
-            case PRIVATE -> {
-                String recipientUsername = chatMessage.getRecipient();
-                if (recipientUsername != null && !recipientUsername.trim().isEmpty()) {
-                    messagingTemplate.convertAndSendToUser(
-                            recipientUsername,
-                            "/queue/messages",
-                            chatMessage
-                    );
-                    
-                    logger.info("Private message from {} to {}: {}", senderUsername, recipientUsername, chatMessage.getContent());
-                    
-                    messagingTemplate.convertAndSendToUser(
-                            senderUsername,
-                            "/queue/messages",
-                            new ChatMessage(ChatMessage.MessageType.CHAT, "(to " + recipientUsername + ")" + chatMessage.getContent(), senderUsername)
-                    );
-                } else {
-                    logger.warn("Private message received without a recipient from user: {}", senderUsername);
-                    
-                    messagingTemplate.convertAndSendToUser(
-                            senderUsername,
-                            "/queue/messages",
-                            new ChatMessage(ChatMessage.MessageType.CHAT, "Error: Private message requires a recipient", "System")
-                    );
-                }
-            }
-            case ROOM -> {
-                String roomId = chatMessage.getRoomId();
-                if (roomId != null && !roomId.trim().isEmpty()) {
-                    messagingTemplate.convertAndSend("/topic/room/" + chatMessage.getRoomId(), chatMessage);
-                    logger.info("Message from {} to room {}: {}", senderUsername, chatMessage.getRoomId(), chatMessage.getContent());
-                } else {
-                    logger.warn("Message received without a room id from user: {}", senderUsername);
-                    messagingTemplate.convertAndSendToUser(
-                            senderUsername,
-                            "/queue/messages",
-                            new ChatMessage(ChatMessage.MessageType.CHAT, "Error: Private message requires a recipient", "System")
-                    );
-                }
-            }
-            default -> {
-                messagingTemplate.convertAndSend("/topic/public", chatMessage);
-                logger.info("Public message from {}: {}", senderUsername, chatMessage.getContent());
-            }
+            return;
         }
+        switch (chatMessage.getType()) {
+            case PRIVATE -> handlePrivateMessage(chatMessage);
+            case ROOM -> handleRoomMessage(chatMessage);
+            default -> handlePublicMessage(chatMessage);
+        }
+    }
+
+    public void handlePrivateMessage(ChatMessage chatMessage) {
+        String senderUsername = chatMessage.getSender();
+        String recipientUsername = chatMessage.getRecipient();
+        if (recipientUsername != null && !recipientUsername.trim().isEmpty()) {
+            messagingTemplate.convertAndSendToUser(
+                    recipientUsername,
+                    "/queue/messages",
+                    chatMessage
+            );
+            
+            logger.info("Private message from {} to {}: {}", senderUsername, recipientUsername, chatMessage.getContent());
+            
+            messagingTemplate.convertAndSendToUser(
+                    senderUsername,
+                    "/queue/messages",
+                    new ChatMessage(ChatMessage.MessageType.CHAT, "(to " + recipientUsername + ")" + chatMessage.getContent(), senderUsername)
+            );
+        } else {
+            logger.warn("Private message received without a recipient from user: {}", senderUsername);
+            
+            messagingTemplate.convertAndSendToUser(
+                    senderUsername,
+                    "/queue/messages",
+                    new ChatMessage(ChatMessage.MessageType.CHAT, "Error: Private message requires a recipient", "System")
+            );
+        }
+    }
+
+    public void handleRoomMessage(ChatMessage chatMessage) {
+        String senderUsername = chatMessage.getSender();
+        String roomId = chatMessage.getRoomId();
+        if (roomId != null && !roomId.trim().isEmpty()) {
+            messagingTemplate.convertAndSend("/topic/rooms/" + chatMessage.getRoomId(), chatMessage);
+            logger.info("Message from {} to room {}: {}", senderUsername, chatMessage.getRoomId(), chatMessage.getContent());
+        } else {
+            logger.warn("Message received without a room id from user: {}", senderUsername);
+            messagingTemplate.convertAndSendToUser(
+                    senderUsername,
+                    "/queue/messages",
+                    new ChatMessage(ChatMessage.MessageType.CHAT, "Error: Private message requires a recipient", "System")
+            );
+        }
+    }
+
+    public void handlePublicMessage(ChatMessage chatMessage) {
+        String senderUsername = chatMessage.getSender();
+        messagingTemplate.convertAndSend("/topic/public", chatMessage);
+        logger.info("Public message from {}: {}", senderUsername, chatMessage.getContent());
     }
 }

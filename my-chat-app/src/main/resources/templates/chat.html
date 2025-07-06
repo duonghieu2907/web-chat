@@ -44,6 +44,17 @@
                   Create Room
                 </button>
               </div>
+              <div class="input-group mb-3" id="findRoomSection">
+                <input 
+                  type="text" 
+                  id="roomIdInput" 
+                  class="form-control" 
+                  placeholder="Enter room ID..."
+                />
+                <button class="btn btn-info" id="findRoomButton">
+                  Find Room
+                </button>
+              </div>
               <div id="roomList" class="mb-3"></div>
             </div>
           </div>
@@ -102,8 +113,11 @@
 
       var usernameInput = document.getElementById("usernameInput");
       var roomNameInput = document.getElementById("roomNameInput");
+      var roomIdInput = document.getElementById("roomIdInput");
+
       var setUsernameButton = document.getElementById("setUsernameButton");
       var createRoomButton = document.getElementById("createRoomButton");
+      var findRoomButton = document.getElementById("findRoomButton");
       var usernameSection = document.getElementById("usernameSection");
       var roomList = document.getElementById("roomList");
 
@@ -192,13 +206,48 @@
           return;
         }
         var roomId = Math.random().toString(36).substring(2, 8);
-        var roomDiv = document.createElement('div');
+        stompClient.send(
+              "/app/createRoom",
+              {},
+              JSON.stringify({ roomId: roomId, name: roomName })
+            );
+        displayRoom(roomId, roomName);
+      }
+
+      function findRoom() {
+        var roomId = roomIdInput.value.trim();
+        if (!roomId) {
+          alert('Please enter a room ID');
+          return;
+        }
+        console.log("Room Id:", roomId);
+        fetch(`api/rooms/${roomId}`)
+          .then(response => {
+            if (!response.ok) throw new Error("Room not found");
+            return response.json();
+          })
+          .then(room => {
+            displayRoom(room.roomId, room.name);
+          })
+          .catch(error => {
+            console.error("Find room error:", error)
+            alert("Room not found");
+          });
+      }
+      
+      function displayRoom(roomId, roomName) {
+        const roomDiv = document.createElement('div');
         roomDiv.className = 'd-flex justify-content-between align-items-center mb-2 p-2 border rounded';
         roomDiv.innerHTML = `
           <span>${roomName} (ID: ${roomId})</span>
           <button class="btn btn-sm btn-primary joinRoomButton" data-room-id="${roomId}">Join</button>
         `;
         roomList.appendChild(roomDiv);
+
+        const joinButton = roomDiv.querySelector('.joinRoomButton');
+        joinButton.addEventListener('click', function () {
+          joinRoom(roomId);
+        });
       }
 
       function joinRoom(roomId) {
@@ -209,7 +258,7 @@
 
         // Subscribe to the new room's topic
         currentRoomSubscription = stompClient.subscribe(
-          '/topic/room/' + roomId,
+          '/topic/rooms/' + roomId,
           function (stompResponse) {
             var chatMessage = JSON.parse(stompResponse.body);
             // console.log('Received message:', chatMessage.content);
@@ -333,13 +382,22 @@
         }
       });
 
-      // Join a room (using event delegation for dynamic buttons)
-      roomList.addEventListener('click', function(e) {
-        if (e.target.classList.contains('joinRoomButton')) {
-          var roomId = e.target.getAttribute('data-room-id');
-          joinRoom(roomId);
+      findRoomButton.addEventListener("click", findRoom);
+
+      roomIdInput.addEventListener("keypress", function (event) {
+        if (event.key == "Enter") {
+          event.preventDefault();
+          findRoom();
         }
       });
+
+      // Join a room (using event delegation for dynamic buttons)
+      // roomList.addEventListener('click', function(e) {
+      //   if (e.target.classList.contains('joinRoomButton')) {
+      //     var roomId = e.target.getAttribute('data-room-id');
+      //     joinRoom(roomId);
+      //   }
+      // });
 
       // Initialize UI state
       setConnected(false);
