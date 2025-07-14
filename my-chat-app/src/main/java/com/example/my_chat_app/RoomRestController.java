@@ -1,5 +1,7 @@
 package com.example.my_chat_app;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +16,9 @@ public class RoomRestController {
     @Autowired
     private RoomService roomService;
 
+    @Autowired
+    private MessageService messageService;
+
     @GetMapping("/{roomId}")
     public ResponseEntity<ChatRoom> getRoom(@PathVariable String roomId) {
         System.out.println("Room id requested: " + roomId);
@@ -25,5 +30,10 @@ public class RoomRestController {
         } else {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    @GetMapping("/{roomId}/messages")
+    public List<ChatMessage> getMessages(@PathVariable String roomId) {
+        return messageService.getMessagesForRoom(roomId);
     }
 }

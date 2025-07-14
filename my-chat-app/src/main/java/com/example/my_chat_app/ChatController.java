@@ -29,6 +29,9 @@ public class ChatController {
     private RoomService roomService;
 
     @Autowired
+    private MessageService messageService;
+
+    @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
     @GetMapping("/chat") // This maps HTTP GET requests to the /chat URL to this method
@@ -222,6 +225,7 @@ public class ChatController {
         String senderUsername = chatMessage.getSender();
         String roomId = chatMessage.getRoomId();
         if (roomId != null && !roomId.trim().isEmpty()) {
+            messageService.saveMessage(roomId, chatMessage);
             messagingTemplate.convertAndSend("/topic/rooms/" + chatMessage.getRoomId(), chatMessage);
             logger.info("Message from {} to room {}: {}", senderUsername, chatMessage.getRoomId(), chatMessage.getContent());
         } else {

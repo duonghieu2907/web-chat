@@ -111,6 +111,8 @@
       var currentRoomId = null;
       var currentRoomSubscription = null;
 
+      var roomMessages = {};
+
       var usernameInput = document.getElementById("usernameInput");
       var roomNameInput = document.getElementById("roomNameInput");
       var roomIdInput = document.getElementById("roomIdInput");
@@ -255,6 +257,16 @@
         if (currentRoomSubscription) {
           currentRoomSubscription.unsubscribe();
         }
+        // Clear UI
+        messagesDiv.innerHTML = "";
+
+        // Load old messages
+        fetch(`/api/rooms/${roomId}/messages`)
+          .then(response => response.json())
+          .then(messages => {
+            roomMessages[roomId] = messages;
+            messages.forEach(msg => displayFormattedMessage(msg));
+          });
 
         // Subscribe to the new room's topic
         currentRoomSubscription = stompClient.subscribe(
@@ -262,16 +274,28 @@
           function (stompResponse) {
             var chatMessage = JSON.parse(stompResponse.body);
             // console.log('Received message:', chatMessage.content);
-            displayFormattedMessage(chatMessage);
+            handleRoomMessage(roomId, chatMessage);
           }
         );
+
         currentRoomId = roomId;
+
         // Show a message that you joined the room
          displayFormattedMessage({
            sender: 'System',
            content: `You joined room: ${roomId}`,
            type: 'JOIN'
          });
+      }
+
+      function handleRoomMessage(roomId, chatMessage) {
+        if (!roomMessages[roomId]) {
+          roomMessages[roomId] = [];
+        }
+        roomMessages[roomId].push(chatMessage);
+        if (roomId === currentRoomId) {
+          displayFormattedMessage(chatMessage);
+        }
       }
 
       // Function to send message to the server
@@ -298,8 +322,7 @@
             messageInput.value = '';
             return;
           }
-        } else if (currentRoomId
-        ) {
+        } else if (currentRoomId) {
           chatMessage.type = 'ROOM';
           chatMessage.roomId = currentRoomId;
         }
