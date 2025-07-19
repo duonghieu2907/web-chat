@@ -1,127 +1,96 @@
 <!DOCTYPE html>
 <html lang="en" , xmlns:th="http://www.thymeleaf.org">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Web Chat</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-      crossorigin="anonymous"
-    />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
-  </head>
 
-  <body>
-    <div class="container mt-5">
-      <h1 class="text-center mb-4">Welcome to Web Chat!</h1>
-      <div class="row">
-        <div class="col-md-4">
-          <div class="card mb-3">
-            <div class="card-header">User & Room Settings</div>
-            <div class="card-body">
-              <div class="input-group mb-3" id="usernameSection">
-                <input
-                  type="text"
-                  id="usernameInput"
-                  class="form-control"
-                  placeholder="Enter your username..."
-                />
-                <button class="btn btn-info" id="setUsernameButton">
-                  Set Username
-                </button>
-              </div>
-              <div class="input-group mb-3" id="roomSection">
-                <input 
-                  type="text" 
-                  id="roomNameInput" 
-                  class="form-control" 
-                  placeholder="Enter room name..."
-                />
-                <button class="btn btn-info" id="createRoomButton">
-                  Create Room
-                </button>
-              </div>
-              <div class="input-group mb-3" id="findRoomSection">
-                <input 
-                  type="text" 
-                  id="roomIdInput" 
-                  class="form-control" 
-                  placeholder="Enter room ID..."
-                />
-                <button class="btn btn-info" id="findRoomButton">
-                  Find Room
-                </button>
-              </div>
-              <div id="roomList" class="mb-3"></div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web Chat</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+</head>
+
+<body>
+  <div class="container mt-5">
+    <h1 class="text-center mb-4">Welcome to Web Chat!</h1>
+    <div class="row">
+      <div class="col-md-4">
+        <div class="card mb-3">
+          <div class="card-header">User & Room Settings</div>
+          <div class="card-body">
+            <div class="input-group mb-3" id="usernameSection">
+              <input type="text" id="usernameInput" class="form-control" placeholder="Enter your username..." />
+              <button class="btn btn-info" id="setUsernameButton">
+                Set Username
+              </button>
             </div>
+            <div class="input-group mb-3" id="roomSection">
+              <input type="text" id="roomNameInput" class="form-control" placeholder="Enter room name..." />
+              <button class="btn btn-info" id="createRoomButton">
+                Create Room
+              </button>
+            </div>
+            <div class="input-group mb-3" id="findIdSection">
+              <input type="text" id="idInput" class="form-control" placeholder="Enter the ID..." />
+              <button class="btn btn-info" id="findButton">
+                Find ID
+              </button>
+            </div>
+            <div id="chatList" class="mb-3"></div>
           </div>
         </div>
-        <div class="col-md-8">
+      </div>
+      <div class="col-md-8">
         <div class="card">
           <div class="card-header">
-            Chat Room
+            <span id="chatHeaderTitle">Chat Room</span>
             <div class="float-end">
               <button class="btn btn-success btn-sm" id="connectButton">
                 Connect
               </button>
-              <button
-                class="btn btn-danger btn-sm"
-                id="disconnectButton"
-                disabled="disabled"
-              >
+              <button class="btn btn-danger btn-sm" id="disconnectButton" disabled="disabled">
                 Disconnect
               </button>
             </div>
           </div>
           <div class="card-body">
-            <div
-              id="messages"
-              class="mb-3"
-              style="
+            <div id="messages" class="mb-3" style="
                 height: 300px;
                 overflow-y: scroll;
                 border: 1px solid #ddd;
                 padding: 10px;
-              "
-            ></div>
+              "></div>
             <div id="chatForm" class="input-group">
-              <input
-                type="text"
-                id="messageInput"
-                class="form-control"
-                placeholder="Type your message..."
-              />
+              <input type="text" id="messageInput" class="form-control" placeholder="Type your message..." />
               <button class="btn btn-primary" id="sendButton">Send</button>
             </div>
           </div>
         </div>
       </div>
     </div>
-    <script
-      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
       integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eGYwzXvK+joP"
-      crossorigin="anonymous"
-    ></script>
+      crossorigin="anonymous"></script>
     <script>
       var stompClient = null;
       var currentUsername = null;
       var currentRoomId = null;
       var currentRoomSubscription = null;
+      var currentPrivateChatId = null;
 
       var roomMessages = {};
+      var privateMessages = {};
 
       var usernameInput = document.getElementById("usernameInput");
       var roomNameInput = document.getElementById("roomNameInput");
-      var roomIdInput = document.getElementById("roomIdInput");
+      var idInput = document.getElementById("idInput");
 
       var setUsernameButton = document.getElementById("setUsernameButton");
       var createRoomButton = document.getElementById("createRoomButton");
-      var findRoomButton = document.getElementById("findRoomButton");
+      var findButton = document.getElementById("findButton");
       var usernameSection = document.getElementById("usernameSection");
-      var roomList = document.getElementById("roomList");
+      var chatList = document.getElementById("chatList");
 
       var messageInput = document.getElementById("messageInput");
       var sendButton = document.getElementById("sendButton");
@@ -177,8 +146,8 @@
 
             stompClient.subscribe("/user/" + currentUsername + "/queue/messages", function (stompResponse) {
               var chatMessage = JSON.parse(stompResponse.body);
-              console.log('Received private message:', chatMessage.content);
-              displayFormattedMessage(chatMessage, true);
+              // console.log('Received private message:', chatMessage.content);
+              handlePrivateMessage(chatMessage);
             });
           },
           function (error) {
@@ -209,34 +178,43 @@
         }
         var roomId = Math.random().toString(36).substring(2, 8);
         stompClient.send(
-              "/app/createRoom",
-              {},
-              JSON.stringify({ roomId: roomId, name: roomName })
-            );
+          "/app/createRoom",
+          {},
+          JSON.stringify({ roomId: roomId, name: roomName })
+        );
         displayRoom(roomId, roomName);
       }
 
-      function findRoom() {
-        var roomId = roomIdInput.value.trim();
-        if (!roomId) {
-          alert('Please enter a room ID');
+      function findId() {
+        var id = idInput.value.trim();
+        if (!id) {
+          alert('Please enter an ID');
           return;
         }
-        console.log("Room Id:", roomId);
-        fetch(`api/rooms/${roomId}`)
+        console.log("Searched Id:", id);
+        fetch(`api/rooms/${id}`)
           .then(response => {
-            if (!response.ok) throw new Error("Room not found");
+            if (response.ok) {
+              return response.json().then(room => {
+                displayRoom(room.id, room.name);
+              });
+            } else {
+              return fetch(`api/users/${id}`);
+            }
+          })
+          .then(response => {
+            if (!response.ok) throw new Error("ID not found");
             return response.json();
           })
-          .then(room => {
-            displayRoom(room.roomId, room.name);
+          .then(user => {
+            displayPrivateChat(user.userId)
           })
           .catch(error => {
-            console.error("Find room error:", error)
-            alert("Room not found");
+            console.error("Find ID error:", error)
+            alert("ID not found");
           });
       }
-      
+
       function displayRoom(roomId, roomName) {
         const roomDiv = document.createElement('div');
         roomDiv.className = 'd-flex justify-content-between align-items-center mb-2 p-2 border rounded';
@@ -244,11 +222,26 @@
           <span>${roomName} (ID: ${roomId})</span>
           <button class="btn btn-sm btn-primary joinRoomButton" data-room-id="${roomId}">Join</button>
         `;
-        roomList.appendChild(roomDiv);
+        chatList.appendChild(roomDiv);
 
         const joinButton = roomDiv.querySelector('.joinRoomButton');
         joinButton.addEventListener('click', function () {
           joinRoom(roomId);
+        });
+      }
+
+      function displayPrivateChat(userId) {
+        const userDiv = document.createElement('div');
+        userDiv.className = 'd-flex justify-content-between align-items-center mb-2 p-2 border rounded';
+        userDiv.innerHTML = `
+          <span>User ID: ${userId}</span>
+          <button class="btn btn-sm btn-primary chatButton" data-user-id="${userId}">Chat</button>
+        `;
+        chatList.appendChild(userDiv);
+
+        const chatButton = userDiv.querySelector('.chatButton');
+        chatButton.addEventListener('click', function () {
+          joinPrivateChat(userId);
         });
       }
 
@@ -257,6 +250,11 @@
         if (currentRoomSubscription) {
           currentRoomSubscription.unsubscribe();
         }
+
+        if (currentPrivateChatId) {
+          currentPrivateChatId = null;
+        }
+
         // Clear UI
         messagesDiv.innerHTML = "";
 
@@ -280,12 +278,36 @@
 
         currentRoomId = roomId;
 
+        updateChatHeaderTitle("Room " + roomId);
+
         // Show a message that you joined the room
-         displayFormattedMessage({
-           sender: 'System',
-           content: `You joined room: ${roomId}`,
-           type: 'JOIN'
-         });
+        displayFormattedMessage({
+          sender: 'System',
+          content: `You joined room: ${roomId}`,
+          type: 'JOIN'
+        });
+      }
+
+      function joinPrivateChat(userId) {
+        // Unsubscribe from previous room if needed
+        if (currentRoomSubscription) {
+          currentRoomSubscription.unsubscribe();
+        }
+
+        currentPrivateChatId = userId;
+
+        updateChatHeaderTitle(userId);
+
+        // Clear UI
+        messagesDiv.innerHTML = "";
+
+        // Load old messages
+        fetch(`/api/users/${currentUsername}/${userId}/messages`)
+          .then(response => response.json())
+          .then(messages => {
+            privateMessages[userId] = messages;
+            messages.forEach(msg => displayFormattedMessage(msg, isPrivate = true));
+          });
       }
 
       function handleRoomMessage(roomId, chatMessage) {
@@ -295,6 +317,21 @@
         roomMessages[roomId].push(chatMessage);
         if (roomId === currentRoomId) {
           displayFormattedMessage(chatMessage);
+        }
+      }
+
+      function handlePrivateMessage(chatMessage) {
+        var userId = chatMessage.sender;
+        if (userId === currentUsername) {
+          userId = chatMessage.recipient;
+        }
+        if (!privateMessages[userId]) {
+          privateMessages[userId] = [];
+          displayPrivateChat(userId);
+        }
+        privateMessages[userId].push(chatMessage);
+        if (userId === currentPrivateChatId) {
+          displayFormattedMessage(chatMessage, isPrivate = true);
         }
       }
 
@@ -309,19 +346,9 @@
           'sender': currentUsername
         };
 
-        if (messageContent.startsWith('/msg ')) {
-          var parts = messageContent.split(' ');
-          if (parts.length >= 3) {
-            var recipient = parts[1];
-            var privateContent = parts.slice(2).join(' ');
-            chatMessage.type = 'PRIVATE';
-            chatMessage.recipient = recipient;
-            chatMessage.content = privateContent;
-          } else {
-            showMessage("System: Invalid private message format. Use /msg [username] [message]");
-            messageInput.value = '';
-            return;
-          }
+        if (currentPrivateChatId) {
+          chatMessage.type = 'PRIVATE';
+          chatMessage.recipient = currentPrivateChatId;
         } else if (currentRoomId) {
           chatMessage.type = 'ROOM';
           chatMessage.roomId = currentRoomId;
@@ -341,7 +368,7 @@
           messageText = `System: ${chatMessage.content}`;
           messageElement.classList.add('bg-info', 'text-white', 'text-center', 'mx-auto');
           messageElement.style.maxWidth = '90%'; // Center system messages
-        } else if (chatMessage.type === 'PRIVATE') {
+        } else if (chatMessage.type === 'PRIVATE' || isPrivate) {
           messageText = `[Private from ${chatMessage.sender} to ${chatMessage.recipient}]: ${chatMessage.content}`;
           messageElement.classList.add('bg-warning', 'text-dark'); // Yellow background for private
           // Align private messages from self or others
@@ -366,13 +393,13 @@
 
       // Function to display messages in the chat window
       function showMessage(message) {
-            var messageElement = document.createElement('div');
-            messageElement.classList.add('message', 'p-1', 'rounded', 'mb-1', 'bg-dark', 'text-light', 'text-center', 'mx-auto');
-            messageElement.style.maxWidth = '90%';
-            messageElement.textContent = message;
-            messagesDiv.appendChild(messageElement);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
+        var messageElement = document.createElement('div');
+        messageElement.classList.add('message', 'p-1', 'rounded', 'mb-1', 'bg-dark', 'text-light', 'text-center', 'mx-auto');
+        messageElement.style.maxWidth = '90%';
+        messageElement.textContent = message;
+        messagesDiv.appendChild(messageElement);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      }
 
       // Event Listeners for buttons and input field
       connectButton.addEventListener("click", connect);
@@ -405,17 +432,17 @@
         }
       });
 
-      findRoomButton.addEventListener("click", findRoom);
+      findButton.addEventListener("click", findId);
 
-      roomIdInput.addEventListener("keypress", function (event) {
+      idInput.addEventListener("keypress", function (event) {
         if (event.key == "Enter") {
           event.preventDefault();
-          findRoom();
+          findId();
         }
       });
 
       // Join a room (using event delegation for dynamic buttons)
-      // roomList.addEventListener('click', function(e) {
+      // chatList.addEventListener('click', function(e) {
       //   if (e.target.classList.contains('joinRoomButton')) {
       //     var roomId = e.target.getAttribute('data-room-id');
       //     joinRoom(roomId);
@@ -423,7 +450,14 @@
       // });
 
       // Initialize UI state
+      function updateChatHeaderTitle(name) {
+        var titleElement = document.getElementById("chatHeaderTitle");
+        if (titleElement) {
+          titleElement.textContent = name;
+        }
+      }
       setConnected(false);
     </script>
-  </body>
+</body>
+
 </html>

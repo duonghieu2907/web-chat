@@ -34,6 +34,9 @@ public class ChatController {
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
+    @Autowired
+    private UserSessionService userSessionService;
+
     @GetMapping("/chat") // This maps HTTP GET requests to the /chat URL to this method
     public String chatPage() {
         // Spring Boot, with Thymeleaf, will look for a template named "chat.html"
@@ -47,10 +50,10 @@ public class ChatController {
     }
 
     // --- WebSocket Message Handling ---
-
     /**
-     * This method listens for the initial STOMP CONNECT event.
-     * It's the ideal place to retrieve and set the username from the CONNECT headers.
+     * This method listens for the initial STOMP CONNECT event. It's the ideal
+     * place to retrieve and set the username from the CONNECT headers.
+     *
      * @param event The SessionConnectEvent containing the STOMP headers.
      */
     @EventListener
@@ -59,9 +62,8 @@ public class ChatController {
 
         // Log all native headers received during the CONNECT event
         String username = headerAccessor.getFirstNativeHeader("username");
-        
-        //logger.info("SessionConnectEvent - Attempted to retrieve username from CONNECT header: {}", username);
 
+        //logger.info("SessionConnectEvent - Attempted to retrieve username from CONNECT header: {}", username);
         if (username == null || username.trim().isEmpty()) {
             String sessionId = headerAccessor.getSessionId();
 
@@ -78,9 +80,8 @@ public class ChatController {
         if (sessionAttributes != null) {
             sessionAttributes.put(USERNAME_SESSION_ATTRIBUTE, username);
             logger.info("SessionConnectEvent - Username '{}' stored in session attributes for session {}", username, headerAccessor.getSessionId());
-            
-            // An alternative of /addUser
 
+            // An alternative of /addUser
             // ChatMessage joinMessage = new ChatMessage(ChatMessage.MessageType.JOIN, username + " has joined the chat!", username);
             // messagingTemplate.convertAndSend("/topic/public", joinMessage);
         } else {
@@ -112,7 +113,7 @@ public class ChatController {
         if (sessionAttributes != null && sessionAttributes.containsKey(USERNAME_SESSION_ATTRIBUTE)) {
             return (String) sessionAttributes.get(USERNAME_SESSION_ATTRIBUTE);
         }
-        
+
         String sessionId = headerAccessor.getSessionId();
         if (sessionId != null && sessionId.length() >= 8) {
             return "AnonymousUser_" + sessionId.substring(0, 8);
@@ -121,17 +122,19 @@ public class ChatController {
     }
 
     /**
-     * Handles the initial "add user" message.
-     * New sends a structured ChatMessage with type JOIN
+     * Handles the initial "add user" message. New sends a structured
+     * ChatMessage with type JOIN
      */
     @MessageMapping("/addUser")
     @SendTo("/topic/public") // Broadcasts a welcome message to all subscribers
     public ChatMessage addUser(@Payload ChatMessage chatMessage, SimpMessageHeaderAccessor headerAccessor) {
         String username = getUsernameFromSession(headerAccessor);
 
+        userSessionService.addUser(username);
+
         logger.info("User {} sent join message to /addUser.", username);
 
-        return new ChatMessage(ChatMessage.MessageType.JOIN, username + " has joined the chat!", username); 
+        return new ChatMessage(ChatMessage.MessageType.JOIN, username + " has joined the chat!", username);
 
     }
 
@@ -150,7 +153,6 @@ public class ChatController {
             room.setRoomId(UUID.randomUUID().toString().substring(0, 6));
         }
 
-
         roomService.addRoom(room);
 
         if (roomService.exists(room.getRoomId())) {
@@ -160,11 +162,11 @@ public class ChatController {
         }
 
         return new ChatMessage(ChatMessage.MessageType.ROOM,
-                                username + " has create room " + room.getName() + "!",
-                                username,
-                                room.getRoomId()); 
+                username + " has create room " + room.getName() + "!",
+                username,
+                room.getRoomId());
     }
-    
+
     /**
      * Handles incoming chat messages from clients.
      *
@@ -187,9 +189,12 @@ public class ChatController {
             return;
         }
         switch (chatMessage.getType()) {
-            case PRIVATE -> handlePrivateMessage(chatMessage);
-            case ROOM -> handleRoomMessage(chatMessage);
-            default -> handlePublicMessage(chatMessage);
+            case PRIVATE ->
+                handlePrivateMessage(chatMessage);
+            case ROOM ->
+                handleRoomMessage(chatMessage);
+            default ->
+                handlePublicMessage(chatMessage);
         }
     }
 
@@ -202,17 +207,19 @@ public class ChatController {
                     "/queue/messages",
                     chatMessage
             );
-            
+
+            messageService.savePrivateMessage(senderUsername, recipientUsername, chatMessage);
+
             logger.info("Private message from {} to {}: {}", senderUsername, recipientUsername, chatMessage.getContent());
-            
+
             messagingTemplate.convertAndSendToUser(
                     senderUsername,
                     "/queue/messages",
-                    new ChatMessage(ChatMessage.MessageType.CHAT, "(to " + recipientUsername + ")" + chatMessage.getContent(), senderUsername)
+                    new ChatMessage(ChatMessage.MessageType.PRIVATE, chatMessage.getContent(), senderUsername, recipientUsername, null)
             );
         } else {
             logger.warn("Private message received without a recipient from user: {}", senderUsername);
-            
+
             messagingTemplate.convertAndSendToUser(
                     senderUsername,
                     "/queue/messages",

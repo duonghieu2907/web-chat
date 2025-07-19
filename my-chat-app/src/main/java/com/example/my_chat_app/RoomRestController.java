@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/rooms")
 public class RoomRestController {
-    
+
     @Autowired
     private RoomService roomService;
 
@@ -21,8 +21,8 @@ public class RoomRestController {
 
     @GetMapping("/{roomId}")
     public ResponseEntity<ChatRoom> getRoom(@PathVariable String roomId) {
-        System.out.println("Room id requested: " + roomId);
-        System.out.println("Available rooms: " + roomService.getAllRooms().stream().map(ChatRoom::getRoomId).toList());
+        // System.out.println("Room id requested: " + roomId);
+        // System.out.println("Available rooms: " + roomService.getAllRooms().stream().map(ChatRoom::getRoomId).toList());
         ChatRoom room = roomService.getRoom(roomId);
         if (room != null) {
             System.out.println("Room id returned: " + room.getRoomId());
